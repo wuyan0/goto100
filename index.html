@@ -1,0 +1,851 @@
+<html>
+
+<head>
+<title>Learning WebGL &mdash; lesson 1</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<script type="text/javascript" src="js/glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="js/webgl-utils.js"></script>
+<script type="text/javascript" src="assert/mario/mario.js"></script>
+<script type="text/javascript" src="assert/brick/brick.js"></script>
+<script type="text/javascript" src="assert/brick1/stab.js"></script>
+<script type="text/javascript" src="assert/brick2/spring.js"></script>
+<script type="text/javascript" src="assert/brick3/sand.js"></script>
+<script type="text/javascript" src="assert/score/score.js"></script>
+<script type="text/javascript" src="assert/gameover/gameover.js"></script>
+
+
+
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float;
+	
+	varying vec2 vTextureCoord;
+
+	uniform sampler2D uSampler;
+	uniform vec3 uColor;
+
+    void main(void) {
+        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+		gl_FragColor = textureColor * vec4(uColor,1.0);
+	}
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+	attribute vec2 aTextureCoord;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+	
+	varying vec2 vTextureCoord;
+
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		vTextureCoord = aTextureCoord;
+    }
+</script>
+
+
+<script type="text/javascript">
+
+    var gl;
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+	var bgm;
+	var ohch;
+	var die;
+	function initAudio(){
+		bgm = document.getElementById("bgm");
+		ohch = document.getElementById("ohch");
+		die = document.getElementById("die");
+	}
+
+    function getShader(gl, id) {
+        var shaderScript = document.getElementById(id);
+        if (!shaderScript) {
+            return null;
+        }
+
+        var str = "";
+        var k = shaderScript.firstChild;
+        while (k) {
+            if (k.nodeType == 3) {
+                str += k.textContent;
+            }
+            k = k.nextSibling;
+        }
+
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } else if (shaderScript.type == "x-shader/x-vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } else {
+            return null;
+        }
+
+        gl.shaderSource(shader, str);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+
+        return shader;
+    }
+
+
+    var shaderProgram;
+
+    function initShaders() {
+        var fragmentShader = getShader(gl, "shader-fs");
+        var vertexShader = getShader(gl, "shader-vs");
+
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+
+        gl.useProgram(shaderProgram);
+
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+		
+		shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+		shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+		shaderProgram.colorUniform = gl.getUniformLocation(shaderProgram, "uColor");
+	}
+	/////////////////////////////////////////////////
+	///////////////init background texture
+	
+	var backgroundTexture;
+	function handleLoadedTexture(texture){
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		// Prevents s-coordinate wrapping (repeating).
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+		// Prevents t-coordinate wrapping (repeating).
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+	}
+	
+	function initTexture(){
+	
+		backgroundTexture = gl.createTexture();
+		backgroundTexture.image = new Image();
+		backgroundTexture.image.onload = function(){
+			handleLoadedTexture(backgroundTexture)
+		}
+		
+		backgroundTexture.image.src = "img/stone1.png";
+	}
+	
+	///////////////////////////////////////////////////
+	////////////////init mario texture
+	
+	var marioTextures = Array();
+	
+	function loadImage(url, callback) {
+	  var image = new Image();
+	  image.src = url;
+	  image.onload = callback;
+	  return image;
+	}
+	
+	function loadImages(urls, callback,num,textures) {
+	  var images = [];
+	  var imagesToLoad = urls.length;
+	 
+	  // Called each time an image finished
+	  // loading.
+	  var onImageLoad = function() {
+		--imagesToLoad;
+		// If all the images are loaded call the callback.
+		if (imagesToLoad == 0) {
+		  callback(images,num,textures);
+		}
+	  };
+	 
+	  for (var ii = 0; ii < imagesToLoad; ++ii) {
+		var image = loadImage(urls[ii], onImageLoad);
+		images.push(image);
+	  }
+	}
+	
+	function handleLoadedMultiTexture(images,num,textures)
+	{
+		for(var ii=0;ii<num;++ii)
+		{
+			var texture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[ii]);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+			
+			textures.push(texture);
+	 
+		}
+	}
+	
+	function handleLoadedMarioTexture(images)
+	{
+		for(var ii=0;ii<8;++ii)
+		{
+			var texture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[ii]);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+			
+			marioTextures.push(texture);
+	 
+		}
+	}
+	
+	function initMarioTexture()
+	{
+		var marioImages = ["assert/mario/mario1.png","assert/mario/mario2.png","assert/mario/mario3.png","assert/mario/mario4.png",
+							"assert/mario/mario5.png","assert/mario/mario6.png","assert/mario/mario7.png","assert/mario/mario8.png"];
+		loadImages(marioImages,handleLoadedMultiTexture,8,marioTextures);
+	}
+	/////////////////////////////////////////////////////////
+	///////////init brick textures
+	
+	var brickTextures;
+	
+	function handleLoadedBrickTexture(texture){
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,  gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,  gl.CLAMP_TO_EDGE);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+	}
+	
+	function initBrickTexture(){
+	
+		brickTextures = gl.createTexture();
+		brickTextures.image = new Image();
+		brickTextures.image.onload = function(){
+			handleLoadedBrickTexture(brickTextures)
+		}
+		
+		brickTextures.image.src = "assert/brick/brick1.png";
+	}
+	
+	var springTextures = Array();
+	
+	function handleLoadedSpringTexture(images)
+	{
+		for(var ii=0;ii<4;++ii)
+		{
+			var texture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[ii]);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+			
+			springTextures.push(texture);
+	 
+		}
+	}
+	function initSpringTexture(){
+		var springImages=["assert/brick2/spring1.png","assert/brick2/spring2.png","assert/brick2/spring3.png","assert/brick2/spring4.png"];
+		loadImages(springImages,handleLoadedMultiTexture,4,springTextures);
+	}
+
+	var stabTexture;
+	function initStabTexture(){
+		stabTexture = gl.createTexture();
+		stabTexture.image = new Image();
+		stabTexture.image.onload = function(){
+			handleLoadedBrickTexture(stabTexture)
+		}
+		
+		stabTexture.image.src = "assert/brick1/stab.png";
+	}
+	
+	var sandTexture;
+	function initSandTexture(){
+		sandTexture = gl.createTexture();
+		sandTexture.image = new Image();
+		sandTexture.image.onload = function(){
+			handleLoadedBrickTexture(sandTexture)
+		}
+		
+		sandTexture.image.src = "assert/brick3/sand.png";
+	}
+	
+	var numberTextures = Array();
+	
+	
+	function initNumberTexture(){
+	
+		var numberImages=["assert/score/n0.png","assert/score/n1.png","assert/score/n2.png","assert/score/n3.png",
+							"assert/score/n4.png","assert/score/n5.png","assert/score/n6.png","assert/score/n7.png",
+							"assert/score/n8.png","assert/score/n9.png"];
+		loadImages(numberImages,handleLoadedMultiTexture,10,numberTextures);
+		
+	}
+	
+	
+	var lifeTextures = Array();
+	function initLifeTexture(){
+		var lifeImages=["assert/mario/life0.png","assert/mario/life1.png","assert/mario/life2.png","assert/mario/life3.png",
+						"assert/mario/life4.png","assert/mario/life5.png","assert/mario/life6.png","assert/mario/life7.png","assert/mario/life8.png"];
+	
+		loadImages(lifeImages,handleLoadedMultiTexture,9,lifeTextures);
+		
+	}
+	
+	var gameoverTexture;
+	function initGameoverTexture(){
+		gameoverTexture = gl.createTexture();
+		gameoverTexture.image = new Image();
+		gameoverTexture.image.onload = function(){
+			handleLoadedBrickTexture(gameoverTexture)
+		}
+		
+		gameoverTexture.image.src = "assert/gameover/gameover.png";
+	}
+	
+    var mvMatrix = mat4.create();
+    var pMatrix = mat4.create();
+	var mvMatrixStack=[];
+
+	function mvPushMatrix() {
+        var copy = mat4.create();
+        mat4.set(mvMatrix, copy);
+        mvMatrixStack.push(copy);
+    }
+
+    function mvPopMatrix() {
+        if (mvMatrixStack.length == 0) {
+            throw "Invalid popMatrix!";
+        }
+        mvMatrix = mvMatrixStack.pop();
+    }
+	
+    function setMatrixUniforms() {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    }
+
+
+    var squareVertexPositionBuffer;
+	var squareVertexTextureCoordBuffer;
+	var squareVertexIndexBuffer;
+	
+	var marioVertexPositionBuffer;
+	var marioRightVertexTextureCoordBuffer;
+	var marioLeftVertexTextureCoordBuffer;
+	
+	var brickVertexPositionBuffer;
+	var brickVertexTextureCoordBuffer;
+	
+	var stabVertexPositionBuffer;
+	var stabVertexTextureCoordBuffer;
+	
+	var numberVertexPositionBuffer;
+	var numberVertexTextureCoordBuffer;
+	
+	var lifeVertexPositionBuffer;
+	var lifeVertexTextureCoordBuffer;
+	
+	var gameoverVertexPositionBuffer;
+	var gameoverVertexTextureCoordBuffer;
+	
+	
+    function initBuffers() {
+	
+		///////////////////////////////////////////////
+		////////mario
+		
+		marioVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, marioVertexPositionBuffer);
+		var vertices = [
+			0.02, 0.04, 0.0,
+			-0.02, 0.04, 0.0,
+			0.02, -0.04, 0.0,
+			-0.02, -0.04, 0.0,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		marioVertexPositionBuffer.itemSize = 3;
+		marioVertexPositionBuffer.numItems = 4;
+		
+		marioRightVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, marioRightVertexTextureCoordBuffer);
+		textureCoordsRight = [
+			1.0, 1.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			0.0, 0.0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordsRight), gl.STATIC_DRAW);
+		marioRightVertexTextureCoordBuffer.itemSize=2;
+		marioRightVertexTextureCoordBuffer.numItems=4;
+		
+		marioLeftVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, marioLeftVertexTextureCoordBuffer);
+		textureCoordsLeft = [
+			0.0, 1.0,
+			1.0, 1.0,
+			0.0, 0.0,
+			1.0, 0.0
+		];
+		
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordsLeft), gl.STATIC_DRAW);
+		marioLeftVertexTextureCoordBuffer.itemSize=2;
+		marioLeftVertexTextureCoordBuffer.numItems=4;
+		
+		//////////////////////////////////////////////////////
+		//////background
+		
+        squareVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+        vertices = [
+             0.4,  10.0,  0.0,
+            -0.4,  10.0,  0.0,
+             0.4, -10.0,  0.0,
+            -0.4, -10.0,  0.0
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        squareVertexPositionBuffer.itemSize = 3;
+        squareVertexPositionBuffer.numItems = 4;
+		
+		
+		squareVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTextureCoordBuffer);
+		textureCoords = [
+			0.0, 0.0,
+			5.0, 0.0,
+			5.0, 101.0,
+			0.0, 101.0
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+		squareVertexTextureCoordBuffer.itemSize=2;
+		squareVertexTextureCoordBuffer.numItems=4;
+		
+		squareVertexIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
+        var squareVertexIndices = [
+            0, 1, 2,      1, 2, 3    // Front face
+        ];
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(squareVertexIndices), gl.STATIC_DRAW);
+        squareVertexIndexBuffer.itemSize = 1;
+        squareVertexIndexBuffer.numItems = 6;
+		
+		////////////////////////////////////
+		///brick
+		
+		brickVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, brickVertexPositionBuffer);
+		var vertices = [
+			0.06, 0.0075, 0.0,
+			-0.06, 0.0075, 0.0,
+			0.06, -0.0075, 0.0,
+			-0.06, -0.0075, 0.0,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		brickVertexPositionBuffer.itemSize = 3;
+		brickVertexPositionBuffer.numItems = 4;
+		
+		brickVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, brickVertexTextureCoordBuffer);
+		textureCoords = [
+			1.0, 1.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			0.0, 0.0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+		brickVertexTextureCoordBuffer.itemSize=2;
+		brickVertexTextureCoordBuffer.numItems=4;
+		
+		////////////////////////////////////////
+		///////stab
+		
+		stabVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, stabVertexPositionBuffer);
+		var vertices = [
+			0.06, 0.0225, 0.0,
+			-0.06, 0.0225, 0.0,
+			0.06, -0.0075, 0.0,
+			-0.06, -0.0075, 0.0,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		stabVertexPositionBuffer.itemSize = 3;
+		stabVertexPositionBuffer.numItems = 4;
+		
+		stabVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, stabVertexTextureCoordBuffer);
+		textureCoords = [
+			1.0, 1.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			0.0, 0.0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+		stabVertexTextureCoordBuffer.itemSize=2;
+		stabVertexTextureCoordBuffer.numItems=4;
+		
+		/////////////////////////////////////
+		////init numberTextures
+		
+		numberVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, numberVertexPositionBuffer);
+		var vertices = [
+			0.015, 0.03, 0.0,
+			-0.015, 0.03, 0.0,
+			0.015, -0.03, 0.0,
+			-0.015, -0.03, 0.0,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		numberVertexPositionBuffer.itemSize = 3;
+		numberVertexPositionBuffer.numItems = 4;
+		
+		numberVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, numberVertexTextureCoordBuffer);
+		textureCoords = [
+			1.0, 1.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			0.0, 0.0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+		numberVertexTextureCoordBuffer.itemSize=2;
+		numberVertexTextureCoordBuffer.numItems=4;
+		
+		/////////////////////////////////
+		////init life buffer
+	
+		lifeVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, lifeVertexPositionBuffer);
+		var vertices = [
+			0.1, 0.03, 0.0,
+			-0.1, 0.03, 0.0,
+			0.1, -0.03, 0.0,
+			-0.1, -0.03, 0.0,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		lifeVertexPositionBuffer.itemSize = 3;
+		lifeVertexPositionBuffer.numItems = 4;
+		
+		lifeVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, lifeVertexTextureCoordBuffer);
+		textureCoords = [
+			1.0, 1.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			0.0, 0.0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+		lifeVertexTextureCoordBuffer.itemSize=2;
+		lifeVertexTextureCoordBuffer.numItems=4;
+		
+		//////////////////////////////////////////
+		/////init gameover
+		
+		gameoverVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, gameoverVertexPositionBuffer);
+		var vertices = [
+			0.24, 0.06, 0.0,
+			-0.24, 0.06, 0.0,
+			0.24, -0.06, 0.0,
+			-0.24, -0.06, 0.0,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		gameoverVertexPositionBuffer.itemSize = 3;
+		gameoverVertexPositionBuffer.numItems = 4;
+		
+		gameoverVertexTextureCoordBuffer = gl.createBuffer();  
+        gl.bindBuffer(gl.ARRAY_BUFFER, gameoverVertexTextureCoordBuffer);
+		textureCoords = [
+			1.0, 1.0,
+			0.0, 1.0,
+			1.0, 0.0,
+			0.0, 0.0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+		gameoverVertexTextureCoordBuffer.itemSize=2;
+		gameoverVertexTextureCoordBuffer.numItems=4;
+		
+    }
+	
+	
+	var mario;
+	var score;
+	var bricks = [];
+	
+	var backgroundmove=0;
+	function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+		gl.uniform3f(shaderProgram.colorUniform, 1.0, 1.0, 1.0);
+
+        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		gl.enable(gl.BLEND);
+		mat4.identity(mvMatrix);
+		
+		
+		/////////////////////////////////////////////////////////////
+		///////background
+		
+		mvPushMatrix();
+        mat4.translate(mvMatrix, [0.0, backgroundmove, -1.0]);
+        
+		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        
+		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, squareVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, backgroundTexture);
+		gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
+		
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
+		setMatrixUniforms();
+		gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0); 
+		mvPopMatrix();
+		
+		for(var i = 0; i < bricks.length; i++)
+			bricks[i].draw();
+		
+		if(mario.life == 0)
+		{
+			gameover.draw();
+			mario.destory();
+		}
+		else{
+			mario.draw();
+			score.draw();
+		}
+	}
+	
+
+	var currentlyPressedKeys = {};
+
+	function handleKeyDown(event) {
+		currentlyPressedKeys[event.keyCode] = true;
+
+	}
+
+	function handleKeyUp(event) {
+		currentlyPressedKeys[event.keyCode] = false;
+	}
+	
+	function handleKeys() {
+		if (currentlyPressedKeys[37]) {
+			// left
+			mario.direction = -1;
+	
+
+		}else
+		if (currentlyPressedKeys[39]){
+			// right
+			mario.direction = 1;
+
+		}else{
+			mario.direction=0;
+
+		}
+	}
+	
+	function initBrickObject(){
+		var x = Math.random();
+		x =  (x - 0.5) * 0.68;
+		
+		var type = Math.random();
+		if(type > 0.6)
+			bricks.push(new Brick(x, -0.5));
+		else if(type > 0.4)
+			bricks.push(new Stab(x, -0.5));
+		else if(type > 0.2)
+			bricks.push(new Spring(x, -0.5));
+		else
+			bricks.push(new Sand(x, -0.5));
+	}
+	
+	
+	var lastTime=0;
+	var brickinterval=0;
+	var speed = 0.1;
+	
+	function animate(){
+		var timeNow = new Date().getTime();
+        if (lastTime != 0) {
+            var elapsed = timeNow - lastTime;
+			backgroundmove += (speed*elapsed) / 1000.0;
+			brickinterval += (speed*elapsed) / 1000.0;
+			if(brickinterval > 0.14){
+				initBrickObject();
+				brickinterval = 0;
+			}
+			
+			if(bricks[0].y > 0.5){
+				bricks[0] = null;
+				bricks.shift();
+			}
+			mario.onBrick = false;
+			for(var i = 0; i < bricks.length; i++){// ????????
+				
+				//console.log(mario.y);
+				//console.log(bricks[i].y);
+				if((mario.y - bricks[i].y - 0.04 - 0.0075) < -0.01) continue;
+				if((mario.y - bricks[i].y - 0.04 - 0.0075) < 0.004)
+				{
+					
+					if((mario.x > (bricks[i].x - 0.06 - 0.02)) && (mario.x < (bricks[i].x + 0.06 + 0.02)))
+					{
+						mario.onBrick = true;
+						mario.touched = bricks[i].att;
+						bricks[i].ontouched=true;
+					}
+					else mario.onBrick = false;
+					break;
+				}
+			}
+			
+			for(var i = 0; i < bricks.length; i++)
+			{				
+			
+				bricks[i].animate(elapsed,speed);
+				
+			}
+			if(mario.life == 0)
+			{
+				gameover.animate(elapsed);
+				mario.destory();
+			}else
+			{
+				mario.animate(elapsed,speed);
+				score.animate(backgroundmove);
+			}
+			//console.log(backgroundmove);
+		}
+		lastTime = timeNow;
+	}
+	
+	
+	function tick() {
+        requestAnimFrame(tick);
+		handleKeys();
+        
+		drawScene();
+		animate();
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("lesson01-canvas");
+        
+		initAudio();
+		bgm.play();
+		bgm.volume = 0.1;
+		initGL(canvas);
+        initShaders();
+        initBuffers();
+		initTexture();
+		initMarioTexture();
+		initBrickTexture();
+		initSpringTexture();
+		initStabTexture();
+		initSandTexture();
+		initNumberTexture();
+		initLifeTexture();
+		initGameoverTexture();
+		
+		gameover = new Gameover();
+		mario = new Mario(0,0);
+		score = new Score();
+		bricks.push(new Brick(0,-0.5));
+	
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        //gl.enable(gl.DEPTH_TEST);
+		
+		document.onkeydown = handleKeyDown;
+		document.onkeyup = handleKeyUp;
+
+        tick();
+    }
+
+
+</script>
+
+
+</head>
+
+
+<body onload="webGLStart();">
+
+    <canvas id="lesson01-canvas" style="border: none;" width="1340" height="620"></canvas>
+	
+	<audio id = "bgm" loop="loop">
+	<source src="audio/bgm.mp3" type="audio/mpeg" />
+	Your browser does not support the audio element.
+	</audio>
+	
+	<audio id = "ohch">
+	<source src="audio/ohch.wav" type="audio/mpeg" />
+	Your browser does not support the audio element.
+	</audio>
+	
+	<audio id = "die">
+	<source src="audio/die.wav" type="audio/mpeg" />
+	Your browser does not support the audio element.
+	</audio>
+
+</body>
+
+</html>
