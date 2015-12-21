@@ -15,6 +15,9 @@ function Mario(positionX,positionY){
 	this.life=8;
 	this.oOnstab=false;
 	this.odie=false;
+	this.onStab=false;
+	this.lifeRecoverTime = 1000; //the frame needed to add life 1
+	this.toRecoverCount = 0;
 }
 
 
@@ -78,12 +81,16 @@ Mario.prototype.draw = function(){
 Mario.prototype.animate=function(elapsedTime,ySpeed){
 	
 	this.red = false;
+	this.onStab = false;
 	if(this.life == 0){
 		this.life = 8;
 	}
 	
 	if(this.y < -0.5 || this.y > 0.5)
 		this.life = 0;
+	
+	if(this.x < -0.4 + 0.02) this.x = 0.4 - 0.02;
+	if(this.x > 0.4 - 0.02) this.x = -0.4 + 0.02;
 	
 	this.mariowalkTime += elapsedTime / 1000.0;
 	if(this.mariowalkTime > 0.05)
@@ -108,8 +115,9 @@ Mario.prototype.animate=function(elapsedTime,ySpeed){
 				this.y = this.y + (ySpeed*elapsedTime) / 1000.0 + 0.02;
 				break;
 			case "stab":
+				this.onStab = true;
 				this.y = this.y + (ySpeed*elapsedTime) / 1000.0;
-				this.v =0;
+				this.v = 0;
 				if(!this.oOnstab)
 				{
 					ohch.play();
@@ -124,7 +132,7 @@ Mario.prototype.animate=function(elapsedTime,ySpeed){
 				this.redCount = (this.redCount + 1) % 10;
 				break;
 			case "sand":
-				if(this.onsandTime < 10)
+				if(this.onsandTime < 15)
 				{
 					this.y = this.y + (ySpeed*elapsedTime) / 1000.0;
 					this.v = 0;
@@ -136,6 +144,15 @@ Mario.prototype.animate=function(elapsedTime,ySpeed){
 		this.oOnstab = false;
 		this.v += 10 * elapsedTime / 1000;
 		this.y = this.y - this.v * 0.1 * elapsedTime / 1000.0;
+	}
+	
+	if(!this.onStab) this.toRecoverCount++;
+	else this.toRecoverCount = 0;
+	
+	if(this.toRecoverCount == this.lifeRecoverTime && this.life < 8)
+	{
+		this.life++;
+		this.toRecoverCount=0;
 	}
 	
 }

@@ -24,6 +24,8 @@ Brick.prototype.draw = function(){
 
 Brick.prototype.animate = function(elapsedTime,ySpeed){
 	this.y += (ySpeed*elapsedTime) / 1000.0;
+	
+	//console.log("brick:"+(ySpeed*elapsedTime) / 1000.0);
 }
 
 Brick.prototype.destroy = function(){

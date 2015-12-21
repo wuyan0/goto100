@@ -51,7 +51,7 @@
     var gl;
     function initGL(canvas) {
         try {
-            gl = canvas.getContext("experimental-webgl");
+            gl = canvas.getContext("webgl");
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
@@ -233,6 +233,8 @@
 	 
 		}
 	}
+	
+	//https://gitcafe.com/mute/goto100/blob/master/assert/brick/brick1.png
 	
 	function initMarioTexture()
 	{
@@ -672,6 +674,7 @@
 			mario.draw();
 			score.draw();
 		}
+		
 	}
 	
 
@@ -721,83 +724,100 @@
 	
 	var lastTime=0;
 	var brickinterval=0;
-	var speed = 0.1;
+	var speed = 0.14;
+	
+	
+	//destory i brick
+	function destoryBrick(i)
+	{
+		bricks[i] = null;
+		bricks.splice(i,1);
+	}
 	
 	function animate(){
-		var timeNow = new Date().getTime();
-        if (lastTime != 0) {
-            var elapsed = timeNow - lastTime;
-			backgroundmove += (speed*elapsed) / 1000.0;
-			brickinterval += (speed*elapsed) / 1000.0;
-			if(brickinterval > 0.14){
-				initBrickObject();
-				brickinterval = 0;
-			}
-			
-			if(bricks[0].y > 0.5){
-				bricks[0] = null;
-				bricks.shift();
-			}
-			mario.onBrick = false;
-			for(var i = 0; i < bricks.length; i++){// ????????
-				
-				//console.log(mario.y);
-				//console.log(bricks[i].y);
-				if((mario.y - bricks[i].y - 0.04 - 0.0075) < -0.01) continue;
-				if((mario.y - bricks[i].y - 0.04 - 0.0075) < 0.004)
-				{
-					
-					if((mario.x > (bricks[i].x - 0.06 - 0.02)) && (mario.x < (bricks[i].x + 0.06 + 0.02)))
-					{
-						mario.onBrick = true;
-						mario.touched = bricks[i].att;
-						bricks[i].ontouched=true;
-					}
-					else mario.onBrick = false;
-					break;
-				}
-			}
-			
-			for(var i = 0; i < bricks.length; i++)
-			{				
-			
-				bricks[i].animate(elapsed,speed);
-				
-			}
-			if(mario.life == 0)
-			{
-				gameover.animate(elapsed);
-				mario.destory();
-			}else
-			{
-				mario.animate(elapsed,speed);
-				score.animate(backgroundmove);
-			}
-			//console.log(backgroundmove);
+		var elapsed = 20;
+		backgroundmove += (speed*elapsed) / 1000.0;
+		brickinterval += (speed*elapsed) / 1000.0;
+		if(brickinterval > 0.14){
+			initBrickObject();
+			brickinterval = 0;
 		}
-		lastTime = timeNow;
+		
+		if(bricks[0].y > 0.5){
+			bricks[0] = null;
+			bricks.shift();
+		}
+		
+		for(var i = 0; i < bricks.length; i++)
+		{				
+		
+			bricks[i].animate(elapsed,speed);
+			
+		}
+		if(mario.life == 0)
+		{
+			gameover.animate(elapsed);
+			mario.destory();
+		}else
+		{
+			mario.animate(elapsed,speed);
+			score.animate(backgroundmove);
+		}
+		//console.log(backgroundmove);
+		
+		mario.onBrick = false;
+		for(var i = 0; i < bricks.length; i++){
+			
+			//console.log(mario.y);
+			//console.log(bricks[i].y);
+			if((mario.y - bricks[i].y - 0.04 - 0.0075) < -0.02) continue;
+			if((mario.y - bricks[i].y - 0.04 - 0.0075) < 0.004)
+			{
+				
+				if((mario.x > (bricks[i].x - 0.06 - 0.02)) && (mario.x < (bricks[i].x + 0.06 + 0.02)))
+				{
+					mario.onBrick = true;
+					mario.y = bricks[i].y + 0.0075 + 0.04;
+					mario.touched = bricks[i].att;
+					bricks[i].ontouched=true;
+					//
+					if(mario.onsandTime == 15)
+						destoryBrick(i);
+				}
+				else mario.onBrick = false;
+				break;
+			}
+		}
+		
+		//console.log("mario:"+mario.y);
+		//console.log("brick:"+bricks[0].y);
+		
 	}
 	
 	
 	function tick() {
-        requestAnimFrame(tick);
+		requestAnimFrame(tick);
 		handleKeys();
-        
+        animate();
 		drawScene();
-		animate();
+		
     }
-
+	
+	
     function webGLStart() {
         var canvas = document.getElementById("lesson01-canvas");
         
 		initAudio();
 		bgm.play();
-		bgm.volume = 0.1;
+		bgm.volume = 0.0;
+	
 		initGL(canvas);
         initShaders();
-        initBuffers();
+    	
+		initBuffers();
 		initTexture();
 		initMarioTexture();
+		
 		initBrickTexture();
 		initSpringTexture();
 		initStabTexture();
@@ -807,8 +827,9 @@
 		initGameoverTexture();
 		
 		gameover = new Gameover();
-		mario = new Mario(0,0);
+		
 		score = new Score();
+		mario = new Mario(0,0.0);
 		bricks.push(new Brick(0,-0.5));
 	
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -816,7 +837,12 @@
 		
 		document.onkeydown = handleKeyDown;
 		document.onkeyup = handleKeyUp;
-
+		
+		//setTimeout(initobject,300);
+		//console.log("test");
+		
+	
+		
         tick();
     }
 
