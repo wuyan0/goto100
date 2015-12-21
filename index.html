@@ -13,6 +13,8 @@
 <script type="text/javascript" src="assert/brick3/sand.js"></script>
 <script type="text/javascript" src="assert/score/score.js"></script>
 <script type="text/javascript" src="assert/gameover/gameover.js"></script>
+<script type="text/javascript" src="assert/start/start.js"></script>
+
 
 
 
@@ -679,6 +681,8 @@
 	
 
 	var currentlyPressedKeys = {};
+	var keyPress=false;
+	
 
 	function handleKeyDown(event) {
 		currentlyPressedKeys[event.keyCode] = true;
@@ -706,6 +710,10 @@
 		}
 	}
 	
+	function handleKeyPress(event) {
+		keyPress=true;
+	}
+	
 	function initBrickObject(){
 		var x = Math.random();
 		x =  (x - 0.5) * 0.68;
@@ -723,6 +731,7 @@
 	
 	
 	var lastTime=0;
+	var timelast=0;
 	var brickinterval=0;
 	var speed = 0.14;
 	
@@ -735,6 +744,9 @@
 	}
 	
 	function animate(){
+		var timeNow = new Date().getTime();
+		console.log("jg "+(timeNow-timelast));
+		
 		var elapsed = 20;
 		backgroundmove += (speed*elapsed) / 1000.0;
 		brickinterval += (speed*elapsed) / 1000.0;
@@ -791,6 +803,7 @@
 		
 		//console.log("mario:"+mario.y);
 		//console.log("brick:"+bricks[0].y);
+		timelast = timeNow;
 		
 	}
 	
@@ -803,19 +816,53 @@
 		
     }
 	
+	function startGame(stopId){
+		
+		var id=requestAnimFrame(startGame);
+		if(keyPress)
+		{
+			console.log("keyPress");
+			window.cancelAnimationFrame(stopId);
+			window.cancelAnimationFrame(id);
+			tick();
+		}
+	}
+	
 	
     function webGLStart() {
         var canvas = document.getElementById("lesson01-canvas");
-        
+		var stopId;
+		
+		
 		initAudio();
 		bgm.play();
 		bgm.volume = 0.0;
+		
+		var timeNow = new Date().getTime();
 	
 		initGL(canvas);
         initShaders();
-    	
+		
+		var timelast = new Date().getTime();
+	
+		console.log("initGL "+(timelast-timeNow));
+		var timeNow = new Date().getTime();
+		
+    	initStart();
+		stopId=startDraw();
+		var timelast = new Date().getTime();
+		console.log("initstart "+(timelast-timeNow));
+	
+		var timeNow = new Date().getTime();
+		
 		initBuffers();
+		
+		var timelast = new Date().getTime();
+		console.log("initbuff "+(timelast-timeNow));
+		var timeNow = new Date().getTime();
+		
 		initTexture();
+		
 		initMarioTexture();
 		
 		initBrickTexture();
@@ -826,24 +873,42 @@
 		initLifeTexture();
 		initGameoverTexture();
 		
+		var timelast = new Date().getTime();
+		console.log("inittexture "+(timelast-timeNow));
+		var timeNow = new Date().getTime();
+		
+		
 		gameover = new Gameover();
 		
 		score = new Score();
 		mario = new Mario(0,0.0);
 		bricks.push(new Brick(0,-0.5));
-	
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        //gl.enable(gl.DEPTH_TEST);
+		
 		
 		document.onkeydown = handleKeyDown;
 		document.onkeyup = handleKeyUp;
+		document.onkeypress = handleKeyPress;
+		
+		var timelast = new Date().getTime();
+		console.log("new "+(timelast-timeNow));
+		var timeNow = new Date().getTime();
+		
+	
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        //gl.enable(gl.DEPTH_TEST);
+	
+		
+		
+		startGame(stopId);
 		
 		//setTimeout(initobject,300);
 		//console.log("test");
 		
-	
+		var timelast = new Date().getTime();
+		console.log("start "+(timelast-timeNow));
 		
-        tick();
+		
+        //tick();
     }
 
 
