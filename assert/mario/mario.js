@@ -160,7 +160,7 @@ Mario.prototype.animate=function(elapsedTime,ySpeed){
 Mario.prototype.destory = function(){
 	if(!this.odie)
 	{
-		die.play();
+		die.play();//死时的声音
 		this.odie=true;
 	}
 }

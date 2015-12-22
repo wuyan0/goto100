@@ -96,7 +96,7 @@ function startDraw()
 	timelast=timeNow;
 	return requestId;
 	
-	//console.log("start");
+	console.log("start");
 	
 	
 }

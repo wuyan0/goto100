@@ -57,7 +57,7 @@ Score.prototype.draw=function(){
 }
 
 Score.prototype.animate = function(move){
-	this.score = parseInt(move.toString() * 10);
+	this.score = parseInt(move.toString()*2);
 	this.hundred = parseInt((this.score / 100).toString());
 	this.ten = parseInt(((this.score - this.hundred * 100) / 10).toString());
 	this.n = parseInt((this.score - this.hundred * 100 - this.ten * 10).toString());

@@ -449,10 +449,10 @@
         squareVertexPositionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         vertices = [
-             0.4,  10.0,  0.0,
-            -0.4,  10.0,  0.0,
-             0.4, -10.0,  0.0,
-            -0.4, -10.0,  0.0
+             0.4,  50.0,  0.0,
+            -0.4,  50.0,  0.0,
+             0.4, -50.0,  0.0,
+            -0.4, -50.0,  0.0
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         squareVertexPositionBuffer.itemSize = 3;
@@ -464,8 +464,8 @@
 		textureCoords = [
 			0.0, 0.0,
 			5.0, 0.0,
-			5.0, 101.0,
-			0.0, 101.0
+			5.0, 501.0,
+			0.0, 501.0
 		];
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
 		squareVertexTextureCoordBuffer.itemSize=2;
@@ -682,6 +682,8 @@
 
 	var currentlyPressedKeys = {};
 	var keyPress=false;
+	var pause=false;
+	var restart=false;
 	
 
 	function handleKeyDown(event) {
@@ -708,22 +710,47 @@
 			mario.direction=0;
 
 		}
+		
+		if(currentlyPressedKeys[80])
+		{
+			pause = !pause;
+			//console.log("pause");
+		}
+		if(currentlyPressedKeys[82])
+			restart = true;
+		
 	}
 	
 	function handleKeyPress(event) {
 		keyPress=true;
 	}
 	
+	var layer=0;
+	//brick stab spring sand
+	var types = new Array([1.0,0.0,0.0,0.0],
+						  [0.9,0.0,0.1,0.0],
+						  [0.8,0.1,0.1,0.0],
+						  [0.7,0.1,0.1,0.1],
+						  [0.6,0.1,0.2,0.1],
+						  [0.5,0.1,0.2,0.2],
+						  [0.5,0.2,0.2,0.1],
+						  [0.5,0.2,0.1,0.2],
+						  [0.4,0.2,0.2,0.2],
+						  [0.3,0.2,0.2,0.3]);
+		
 	function initBrickObject(){
 		var x = Math.random();
 		x =  (x - 0.5) * 0.68;
 		
+		var temp=layer/5;
+		var i = parseInt(temp.toString());
+		if(i > 10) i=9;
 		var type = Math.random();
-		if(type > 0.6)
+		if(type < types[i][0])
 			bricks.push(new Brick(x, -0.5));
-		else if(type > 0.4)
+		else if(type < (types[i][0] + types[i][1]))
 			bricks.push(new Stab(x, -0.5));
-		else if(type > 0.2)
+		else if(type < (types[i][1] + types[i][2]))
 			bricks.push(new Spring(x, -0.5));
 		else
 			bricks.push(new Sand(x, -0.5));
@@ -733,8 +760,21 @@
 	var lastTime=0;
 	var timelast=0;
 	var brickinterval=0;
-	var speed = 0.14;
+	var speed = 0.12;
 	
+	function restartGame(){
+		restart = false;
+		backgroundmove=0;
+		speed = 0.12;
+		mario.x = 0;
+		mario.y = 0;
+		mario.life = 8;
+		mario.odie=false;
+		gameover.y=0.5;
+		gameover.v=0;
+		bricks = [];
+		bricks.push(new Brick(0,-0.5));
+	}
 	
 	//destory i brick
 	function destoryBrick(i)
@@ -745,20 +785,26 @@
 	
 	function animate(){
 		var timeNow = new Date().getTime();
-		console.log("jg "+(timeNow-timelast));
+		//console.log("jg "+(timeNow-timelast));
 		
 		var elapsed = 20;
+		if(pause)
+		{
+			elapsed = 0;
+			console.log("animate pause");
+		}
+		
 		backgroundmove += (speed*elapsed) / 1000.0;
 		brickinterval += (speed*elapsed) / 1000.0;
 		if(brickinterval > 0.14){
 			initBrickObject();
 			brickinterval = 0;
 		}
-		
-		if(bricks[0].y > 0.5){
-			bricks[0] = null;
-			bricks.shift();
-		}
+		if(bricks[0])
+			if(bricks[0].y > 0.5){
+				bricks[0] = null;
+				bricks.shift();
+			}
 		
 		for(var i = 0; i < bricks.length; i++)
 		{				
@@ -769,7 +815,9 @@
 		if(mario.life == 0)
 		{
 			gameover.animate(elapsed);
+			//mario=null;
 			mario.destory();
+			if(restart) restartGame();
 		}else
 		{
 			mario.animate(elapsed,speed);
@@ -800,6 +848,9 @@
 				break;
 			}
 		}
+		layer = parseInt(m=backgroundmove.toString()*2); 
+		speed = 0.12 + layer/1000;
+		console.log(speed);
 		
 		//console.log("mario:"+mario.y);
 		//console.log("brick:"+bricks[0].y);
@@ -809,6 +860,7 @@
 	
 	
 	function tick() {
+		restart=false;
 		requestAnimFrame(tick);
 		handleKeys();
         animate();
