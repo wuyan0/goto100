@@ -212,22 +212,38 @@ function onrender(img){
 	
 	
 	cancelId=requestAnimationFrame(onrender);
-	tt+=0.03;
+	tt+=0.1;
 }
 gl.clearColor(0.0, 0.0, 0.0, 1.0);
 onrender();
 
-function loadjs(file){
+function loadJS(file,callback){
+    var loaded=0;
     var script=document.createElement('script');
     script.src=file;
     script.type='text/javascript';
-	script.async = true;
-    script.onload=function(){
-		window.cancelAnimationFrame(cancelId);
-		loaded=1;
-		webGLStart();
-		};
-    
+    script.onload=function(){if(!loaded){callback();loaded=1;}};
+    script.onreadystatechange = function() {
+        if (this.readyState == 'complete') {
+            if(!loaded){callback();loaded=1;}
+        }
+    }
     document.body.appendChild(script);
 }
-//loadjs("js/index.js");
+var JSfile=["js/glMatrix-0.9.5.min.js","js/webgl-utils.js","assert/mario/mario.js","assert/brick/brick.js",
+			"assert/brick1/stab.js","assert/brick2/spring.js","assert/brick3/sand.js","assert/score/score.js",
+			"assert/gameover/gameover.js","assert/start/start.js","js/index.js"];
+var p=0;
+function loadMultiJS(){
+	if(p<JSfile.length)
+	{
+		loadJS(JSfile[p++],loadMultiJS);
+	}else{
+		initBackgroudTexture();
+		
+	}
+	
+}
+
+loadMultiJS();
+

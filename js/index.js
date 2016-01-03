@@ -81,7 +81,7 @@ function loadImage(url, callback) {
   return image;
 }
 
-function loadImages(urls, callback,num,textures) {
+function loadImages(urls, callback,num,textures,initNewTex) {
   var images = [];
   var imagesToLoad = urls.length;
  
@@ -91,7 +91,8 @@ function loadImages(urls, callback,num,textures) {
 	--imagesToLoad;
 	// If all the images are loaded call the callback.
 	if (imagesToLoad == 0) {
-	  callback(images,num,textures);
+	  callback(images,num,textures,initNewTex);
+	  
 	}
   };
  
@@ -101,7 +102,7 @@ function loadImages(urls, callback,num,textures) {
   }
 }
 
-function handleLoadedMultiTexture(images,num,textures)
+function handleLoadedMultiTexture(images,num,textures,initNewTex)
 {
 	for(var ii=0;ii<num;++ii)
 	{
@@ -119,25 +120,13 @@ function handleLoadedMultiTexture(images,num,textures)
 		textures.push(texture);
  
 	}
+	initNewTex();
 }
 
 /////////////////////////////////////////////////
 ///////////////init background texture
 
 var backgroundTextures =  Array();
-/*function handleLoadedMultiBackgroudTexture(texture){
-	gl.bindTexture(gl.TEXTURE_2D, texture);
-	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	// Prevents s-coordinate wrapping (repeating).
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	// Prevents t-coordinate wrapping (repeating).
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-	gl.bindTexture(gl.TEXTURE_2D, null);
-}*/
-
 function handleLoadedMultiBackgroudTexture(images,num,textures)
 {
 	for(var ii=0;ii<num;++ii)
@@ -158,25 +147,7 @@ function handleLoadedMultiBackgroudTexture(images,num,textures)
 		textures.push(texture);
  
 	}
-}
-
-function initTexture(){
-
-	backgroundTexture = gl.createTexture();
-	backgroundTexture.image = new Image();
-	backgroundTexture.image.onload = function(){
-		handleLoadedTexture(backgroundTexture)
-	}
-	
-	backgroundTexture.image.src = "img/stone1.png";
-	
-	backgroundTexture2 = gl.createTexture();
-	backgroundTexture2.image = new Image();
-	backgroundTexture2.image.onload = function(){
-		handleLoadedTexture(backgroundTexture2)
-	}
-	
-	backgroundTexture2.image.src = "img/stone5.png";
+	initMarioTexture();
 }
 
 function initBackgroudTexture()
@@ -192,11 +163,11 @@ function initBackgroudTexture()
 
 var marioTextures = Array();
 
-function initMarioTexture()
+var initMarioTexture=function()
 {
 	var marioImages = ["assert/mario/mario1.png","assert/mario/mario2.png","assert/mario/mario3.png","assert/mario/mario4.png",
 						"assert/mario/mario5.png","assert/mario/mario6.png","assert/mario/mario7.png","assert/mario/mario8.png"];
-	loadImages(marioImages,handleLoadedMultiTexture,8,marioTextures);
+	loadImages(marioImages,handleLoadedMultiTexture,8,marioTextures,initBrickTexture);
 }
 /////////////////////////////////////////////////////////
 ///////////init brick textures
@@ -214,41 +185,24 @@ function handleLoadedBrickTexture(texture){
 	gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
-function initBrickTexture(){
+var initBrickTexture=function(){
 
 	brickTextures = gl.createTexture();
 	brickTextures.image = new Image();
 	brickTextures.image.onload = function(){
-		handleLoadedBrickTexture(brickTextures)
+		handleLoadedBrickTexture(brickTextures);
+		initSpringTexture();
 	}
 	
 	brickTextures.image.src = "assert/brick/brick1.png";
+
 }
 
 var springTextures = Array();
 
-function handleLoadedSpringTexture(images)
-{
-	for(var ii=0;ii<4;++ii)
-	{
-		var texture = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[ii]);
-		gl.bindTexture(gl.TEXTURE_2D, null);
-		
-		springTextures.push(texture);
- 
-	}
-}
 function initSpringTexture(){
 	var springImages=["assert/brick2/spring1.png","assert/brick2/spring2.png","assert/brick2/spring3.png","assert/brick2/spring4.png"];
-	loadImages(springImages,handleLoadedMultiTexture,4,springTextures);
+	loadImages(springImages,handleLoadedMultiTexture,4,springTextures,initStabTexture);
 }
 
 var stabTexture;
@@ -256,7 +210,8 @@ function initStabTexture(){
 	stabTexture = gl.createTexture();
 	stabTexture.image = new Image();
 	stabTexture.image.onload = function(){
-		handleLoadedBrickTexture(stabTexture)
+		handleLoadedBrickTexture(stabTexture);
+		initSandTexture();
 	}
 	
 	stabTexture.image.src = "assert/brick1/stab.png";
@@ -267,7 +222,8 @@ function initSandTexture(){
 	sandTexture = gl.createTexture();
 	sandTexture.image = new Image();
 	sandTexture.image.onload = function(){
-		handleLoadedBrickTexture(sandTexture)
+		handleLoadedBrickTexture(sandTexture);
+		initNumberTexture();
 	}
 	
 	sandTexture.image.src = "assert/brick3/sand.png";
@@ -281,7 +237,7 @@ function initNumberTexture(){
 	var numberImages=["assert/score/n0.png","assert/score/n1.png","assert/score/n2.png","assert/score/n3.png",
 						"assert/score/n4.png","assert/score/n5.png","assert/score/n6.png","assert/score/n7.png",
 						"assert/score/n8.png","assert/score/n9.png"];
-	loadImages(numberImages,handleLoadedMultiTexture,10,numberTextures);
+	loadImages(numberImages,handleLoadedMultiTexture,10,numberTextures,initLifeTexture);
 	
 }
 
@@ -291,7 +247,7 @@ function initLifeTexture(){
 	var lifeImages=["assert/mario/life0.png","assert/mario/life1.png","assert/mario/life2.png","assert/mario/life3.png",
 					"assert/mario/life4.png","assert/mario/life5.png","assert/mario/life6.png","assert/mario/life7.png","assert/mario/life8.png"];
 
-	loadImages(lifeImages,handleLoadedMultiTexture,9,lifeTextures);
+	loadImages(lifeImages,handleLoadedMultiTexture,9,lifeTextures,initGameoverTexture);
 	
 }
 
@@ -300,7 +256,9 @@ function initGameoverTexture(){
 	gameoverTexture = gl.createTexture();
 	gameoverTexture.image = new Image();
 	gameoverTexture.image.onload = function(){
-		handleLoadedBrickTexture(gameoverTexture)
+		handleLoadedBrickTexture(gameoverTexture);
+		window.cancelAnimationFrame(cancelId)	;
+		webGLStart();
 	}
 	
 	gameoverTexture.image.src = "assert/gameover/gameover.png";
@@ -954,7 +912,7 @@ function webGLStart() {
 	
 	//initTexture();
 	
-	
+	/*
 	initBackgroudTexture();
 	initMarioTexture();
 	
@@ -965,7 +923,7 @@ function webGLStart() {
 	initNumberTexture();
 	initLifeTexture();
 	initGameoverTexture();
-	
+	*/
 	var timelast = new Date().getTime();
 	console.log("inittexture "+(timelast-timeNow));
 	var timeNow = new Date().getTime();

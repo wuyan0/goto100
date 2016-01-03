@@ -9,17 +9,6 @@ html, body { margin: 0; padding: 0; border: 0; }
 #g_canvas { display: block; } /* kill scrollbars from hell */
 </style>
 
-<script type="text/javascript" src="js/glMatrix-0.9.5.min.js"></script>
-<script type="text/javascript" src="js/webgl-utils.js"></script>
-<script type="text/javascript" src="assert/mario/mario.js"></script>
-<script type="text/javascript" src="assert/brick/brick.js"></script>
-<script type="text/javascript" src="assert/brick1/stab.js"></script>
-<script type="text/javascript" src="assert/brick2/spring.js"></script>
-<script type="text/javascript" src="assert/brick3/sand.js"></script>
-<script type="text/javascript" src="assert/score/score.js"></script>
-<script type="text/javascript" src="assert/gameover/gameover.js"></script>
-<script type="text/javascript" src="assert/start/start.js"></script>
-
 
 
 
@@ -59,6 +48,7 @@ html, body { margin: 0; padding: 0; border: 0; }
 <body>
 
     <canvas id="g_canvas" style="border: none;" width="1340" height="620"></canvas>
+	<script src="assert/loading/loading.js"></script>
 	
 	<audio id = "bgm" loop="loop">
 	<source src="audio/bgm.mp3" type="audio/mpeg" />
@@ -74,7 +64,7 @@ html, body { margin: 0; padding: 0; border: 0; }
 	<source src="audio/die.wav" type="audio/mpeg" />
 	Your browser does not support the audio element.
 	</audio>
-	<script src="assert/loading/loading.js"></script>
+	
 
 </body>
 
