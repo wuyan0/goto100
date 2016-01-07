@@ -257,11 +257,23 @@ function initGameoverTexture(){
 	gameoverTexture.image = new Image();
 	gameoverTexture.image.onload = function(){
 		handleLoadedBrickTexture(gameoverTexture);
+		initDarkTexture();
+	}
+	
+	gameoverTexture.image.src = "assert/gameover/gameover.png";
+}
+
+var darkTexture;
+function initDarkTexture(){
+	darkTexture = gl.createTexture();
+	darkTexture.image = new Image();
+	darkTexture.image.onload = function(){
+		handleLoadedBrickTexture(darkTexture);
 		window.cancelAnimationFrame(cancelId)	;
 		webGLStart();
 	}
 	
-	gameoverTexture.image.src = "assert/gameover/gameover.png";
+	darkTexture.image.src = "assert/mario/dark.png";
 }
 
 var mvMatrix = mat4.create();
@@ -313,6 +325,9 @@ var lifeVertexTextureCoordBuffer;
 
 var gameoverVertexPositionBuffer;
 var gameoverVertexTextureCoordBuffer;
+
+var darkVertexPositionBuffer;
+var darkVertexTextureCoordBuffer;
 
 
 function initBuffers() {
@@ -571,6 +586,35 @@ function initBuffers() {
 	gameoverVertexTextureCoordBuffer.itemSize=2;
 	gameoverVertexTextureCoordBuffer.numItems=4;
 	
+	//////////////////////////////////////////
+	/////init dark
+	
+	darkVertexPositionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, darkVertexPositionBuffer);
+	var vertices = [
+		1.1, 2.2, 0.0,
+		-1.1, 2.2, 0.0,
+		1.1, -2.2, 0.0,
+		-1.1, -2.2, 0.0,
+	];
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+	darkVertexPositionBuffer.itemSize = 3;
+	darkVertexPositionBuffer.numItems = 4;
+	
+	darkVertexTextureCoordBuffer = gl.createBuffer();  
+	gl.bindBuffer(gl.ARRAY_BUFFER, darkVertexTextureCoordBuffer);
+	textureCoords = [
+		1.0, 1.0,
+		0.0, 1.0,
+		1.0, 0.0,
+		0.0, 0.0
+	];
+	
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+	darkVertexTextureCoordBuffer.itemSize=2;
+	darkVertexTextureCoordBuffer.numItems=4;
+	
+	
 }
 
 
@@ -662,6 +706,8 @@ var currentlyPressedKeys = {};
 var keyPress=false;
 var pause=false;
 var restart=false;
+var dark=false;
+var easy=true;
 
 
 function handleKeyDown(event) {
@@ -672,6 +718,12 @@ function handleKeyDown(event) {
 function handleKeyUp(event) {
 	currentlyPressedKeys[event.keyCode] = false;
 }
+function sleep(delay)
+{
+    var start = new Date().getTime();
+    while (new Date().getTime() < start + delay);
+}
+
 
 function handleKeys() {
 	if (currentlyPressedKeys[37]) {
@@ -691,18 +743,33 @@ function handleKeys() {
 	
 	if(currentlyPressedKeys[80])
 	{
-		pause = !pause;
+		sleep(30);
+		if(currentlyPressedKeys[80])
+			pause = !pause;
 		//console.log("pause");
 	}
 	if(currentlyPressedKeys[82])
 		restart = true;
 	
+	if(currentlyPressedKeys[38])
+	{
+		dark=false;
+	}
+	if(currentlyPressedKeys[40])
+	{
+		dark=true;
+	}
+	if(currentlyPressedKeys[32])
+	{
+		keyPress=true;
+		//console.log("press");
+	}
 }
-
+/*
 function handleKeyPress(event) {
 	keyPress=true;
 }
-
+*/
 var layer=0;
 //brick stab spring sand
 var types = new Array([1.0,0.0,0.0,0.0],
@@ -722,13 +789,13 @@ function initBrickObject(){
 	
 	var temp=layer/5;
 	var i = parseInt(temp.toString());
-	if(i > 10) i=9;
+	if(i > 9) i=9;
 	var type = Math.random();
 	if(type < types[i][0])
 		bricks.push(new Brick(x, -0.5));
 	else if(type < (types[i][0] + types[i][1]))
 		bricks.push(new Stab(x, -0.5));
-	else if(type < (types[i][1] + types[i][2]))
+	else if(type < (types[i][0] + types[i][1] + types[i][2]))
 		bricks.push(new Spring(x, -0.5));
 	else
 		bricks.push(new Sand(x, -0.5));
@@ -738,12 +805,12 @@ function initBrickObject(){
 var lastTime=0;
 var timelast=0;
 var brickinterval=0;
-var speed = 0.15;
+var speed = 0.20;
 
 function restartGame(){
 	restart = false;
 	backgroundmove=0;
-	speed = 0.12;
+	speed = 0.20;
 	mario.x = 0;
 	mario.y = 0;
 	mario.life = 8;
@@ -799,20 +866,11 @@ function animate(){
 		bricks[i].animate(elapsed,speed);
 		
 	}
-	if(mario.life == 0)
-	{
-		gameover.animate(elapsed);
-		//mario=null;
-		mario.destory();
-		if(restart) restartGame();
-	}else
-	{
-		mario.animate(elapsed,speed);
-		score.animate(backgroundmove);
-	}
+	
 	//console.log(backgroundmove);
 	
 	mario.onBrick = false;
+	
 	for(var i = 0; i < bricks.length; i++){
 		
 		//console.log(mario.y);
@@ -843,6 +901,7 @@ function animate(){
 	else toBLayer=4;
 	
 	//console.log(bLayer);
+	
 	if(layer%10==0 && fLayer)
 	{
 		speed += 0.01;
@@ -854,27 +913,49 @@ function animate(){
 	
 	//console.log("mario:"+mario.y);
 	//console.log("brick:"+bricks[0].y);
+	
+	if(mario.life == 0)
+	{
+		gameover.animate(elapsed);
+		//mario=null;
+		mario.destory();
+		if(restart) restartGame();
+	}else
+	{
+		mario.animate(elapsed,speed);
+		score.animate(backgroundmove);
+	}
 	timelast = timeNow;
 	
 }
 
 
 function tick() {
+	
+	var timeNow = new Date().getTime();
+	
 	restart=false;
 	requestAnimFrame(tick);
 	handleKeys();
 	animate();
 	drawScene();
 	
+	var timelast = new Date().getTime();
+	//if(timelast-timeNow>2)
+	//	console.log((timelast-timeNow));
+	
 }
 
-function startGame(stopId){
+function startGame(){
+	
 	
 	var id=requestAnimFrame(startGame);
+	handleKeys();
+	startDraw(dark);
+	
 	if(keyPress)
 	{
 		console.log("keyPress");
-		window.cancelAnimationFrame(stopId);
 		window.cancelAnimationFrame(id);
 		tick();
 	}
@@ -882,7 +963,6 @@ function startGame(stopId){
 
 
 function webGLStart() {
-	var stopId;
 	
 	initAudio();
 	bgm.play();
@@ -898,7 +978,6 @@ function webGLStart() {
 	var timeNow = new Date().getTime();
 	
 	initStart();
-	stopId=startDraw();
 	var timelast = new Date().getTime();
 	console.log("initstart "+(timelast-timeNow));
 
@@ -938,7 +1017,7 @@ function webGLStart() {
 	
 	document.onkeydown = handleKeyDown;
 	document.onkeyup = handleKeyUp;
-	document.onkeypress = handleKeyPress;
+	//document.onkeypress = handleKeyPress;
 	
 	var timelast = new Date().getTime();
 	console.log("new "+(timelast-timeNow));
@@ -950,7 +1029,7 @@ function webGLStart() {
 
 	
 	
-	startGame(stopId);
+	startGame();
 	
 	//setTimeout(initobject,300);
 	//console.log("test");

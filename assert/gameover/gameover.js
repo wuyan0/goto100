@@ -5,6 +5,26 @@ function Gameover(){
 
 Gameover.prototype.draw = function()
 {
+	if(!easy)
+	{
+		/////////////////////////////////////////////////////
+		/////////////draw dark
+		mvPushMatrix();
+		mat4.translate(mvMatrix, [0, 0, -1.0]);
+		gl.bindBuffer(gl.ARRAY_BUFFER, darkVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, darkVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, darkVertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, darkVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, darkTexture);
+		gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
+		setMatrixUniforms();
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, darkVertexPositionBuffer.numItems);
+		mvPopMatrix();
+	}
 	mvPushMatrix();
 	mat4.translate(mvMatrix, [0, this.y, -1.0]);
 	gl.bindBuffer(gl.ARRAY_BUFFER, gameoverVertexPositionBuffer);

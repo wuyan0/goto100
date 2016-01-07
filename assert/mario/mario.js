@@ -23,6 +23,25 @@ function Mario(positionX,positionY){
 
 Mario.prototype.draw = function(){
 	
+	if(!easy){
+		/////////////////////////////////////////////////////
+		/////////////draw dark
+		mvPushMatrix();
+		mat4.translate(mvMatrix, [this.x, this.y, -1.0]);
+		gl.bindBuffer(gl.ARRAY_BUFFER, darkVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, darkVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, darkVertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, darkVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, darkTexture);
+		gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
+		setMatrixUniforms();
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, darkVertexPositionBuffer.numItems);
+		mvPopMatrix();
+	}
 	
 	////////////////////////////////////////
 	//////////draw mario
@@ -76,6 +95,8 @@ Mario.prototype.draw = function(){
 	setMatrixUniforms();
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, lifeVertexPositionBuffer.numItems);
 	mvPopMatrix();
+	
+	
 }
 	
 Mario.prototype.animate=function(elapsedTime,ySpeed){
@@ -144,6 +165,7 @@ Mario.prototype.animate=function(elapsedTime,ySpeed){
 		this.oOnstab = false;
 		this.v += 10 * elapsedTime / 1000;
 		this.y = this.y - this.v * 0.1 * elapsedTime / 1000.0;
+		this.onsandTime = 0;
 	}
 	
 	if(!this.onStab) this.toRecoverCount++;

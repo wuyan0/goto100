@@ -1,8 +1,9 @@
 //start
-var startTextrue;
+var startEasyTextrue;
+var startHardTextrue;
 var startVertexPositionBuffer;
 var startVertexTextureCoordBuffer;
-var requestId;
+
 
 function handleLoadedStartTexture(texture){
 	gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -21,21 +22,30 @@ function handleLoadedStartTexture(texture){
 function initStart()
 {
 	
-	startTextrue = gl.createTexture();
-	startTextrue.image = new Image();
-	startTextrue.image.onload = function(){
-		handleLoadedStartTexture(startTextrue)
+	startEasyTextrue = gl.createTexture();
+	startEasyTextrue.image = new Image();
+	startEasyTextrue.image.onload = function(){
+		handleLoadedStartTexture(startEasyTextrue)
 	}
 	
-	startTextrue.image.src = "assert/start/pressStart.png";
+	startEasyTextrue.image.src = "assert/start/easy.png";
+	
+	startHardTextrue = gl.createTexture();
+	startHardTextrue.image = new Image();
+	startHardTextrue.image.onload = function(){
+		handleLoadedStartTexture(startHardTextrue)
+	}
+	
+	startHardTextrue.image.src = "assert/start/hard.png";
+	
 	
 	startVertexPositionBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, startVertexPositionBuffer);
 	var vertices = [
-		0.3, 0.075, 0.0,
-		-0.3, 0.075, 0.0,
-		0.3, -0.075, 0.0,
-		-0.3, -0.075, 0.0,
+		0.3, 0.15, 0.0,
+		-0.3, 0.15, 0.0,
+		0.3, -0.15, 0.0,
+		-0.3, -0.15, 0.0,
 	];
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 	startVertexPositionBuffer.itemSize = 3;
@@ -58,12 +68,11 @@ function initStart()
 }
 
 var timelast=0;
-function startDraw()
+function startDraw(dark)
 {	
 	var timeNow = new Date().getTime();
 	//console.log(timeNow-timelast);
 	
-	requestId=requestAnimFrame(startDraw);
 	
 	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -76,25 +85,43 @@ function startDraw()
 	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 	gl.enable(gl.BLEND);
 	mat4.identity(mvMatrix);
-	
-	mvPushMatrix();
-	mat4.translate(mvMatrix, [0.0, 0.0, -1.0]);
-	gl.bindBuffer(gl.ARRAY_BUFFER, startVertexPositionBuffer);
-	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, startVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, startVertexTextureCoordBuffer);
-	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, startVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, startTextrue);
-	gl.uniform1i(shaderProgram.samplerUniform, 0);
-	
-	setMatrixUniforms();
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, startVertexPositionBuffer.numItems);
-	mvPopMatrix();
-	
+	if(dark)
+	{
+		mvPushMatrix();
+		mat4.translate(mvMatrix, [0.0, 0.0, -1.0]);
+		gl.bindBuffer(gl.ARRAY_BUFFER, startVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, startVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, startVertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, startVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, startHardTextrue);
+		gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
+		setMatrixUniforms();
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, startVertexPositionBuffer.numItems);
+		mvPopMatrix();
+		easy=false;
+	}else{
+		mvPushMatrix();
+		mat4.translate(mvMatrix, [0.0, 0.0, -1.0]);
+		gl.bindBuffer(gl.ARRAY_BUFFER, startVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, startVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, startVertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, startVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, startEasyTextrue);
+		gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
+		setMatrixUniforms();
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, startVertexPositionBuffer.numItems);
+		mvPopMatrix();
+		easy=true;
+	}
 	timelast=timeNow;
-	return requestId;
 	
 	console.log("start");
 	
